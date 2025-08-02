@@ -20,7 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString)
 );
 
-// Agregamos la configuración para ASP -Net Core Identity
+// Agregamos la configuraciï¿½n para ASP -Net Core Identity
 // indicamos la clase modelo que vamos a usar
 builder.Services.AddIdentity<AppUser, IdentityRole>().AddEntityFrameworkStores<AppDbContext>().AddDefaultTokenProviders();
 
@@ -46,12 +46,22 @@ builder.Services.AddAuthentication(opt =>
 });
 
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-// builder.Services.AddOpenApi();
+
+
+// Configurar CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 // agregando swagger
 builder.Services.AddEndpointsApiExplorer();
-//Agregando la Definición de Seguridad
+//Agregando la Definiciï¿½n de Seguridad
 builder.Services.AddSwaggerGen(c =>
 {
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -94,6 +104,9 @@ if (app.Environment.IsDevelopment())
 
 // area de middleware
 app.UseHttpsRedirection();
+
+// Habilitar CORS
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 

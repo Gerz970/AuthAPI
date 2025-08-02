@@ -72,12 +72,21 @@ public class RolesController : ControllerBase
     public async Task<ActionResult<IEnumerable<RoleResponseDto>>> GetRoles()
     {
         // Obtener todos los roles con el conteo de usuarios en cada uno
-        var roles = await _roleManager.Roles.Select(role => new RoleResponseDto
+        var roles = new List<RoleResponseDto>();
+        
+        foreach (var role in _roleManager.Roles)
         {
-            Id = role.Id,
-            Name = role.Name,
-            TotalUsers = _userManager.GetUsersInRoleAsync(role.Name!).Result.Count
-        }).ToListAsync();
+            if (role.Name != null)
+            {
+                var usersInRole = await _userManager.GetUsersInRoleAsync(role.Name);
+                roles.Add(new RoleResponseDto
+                {
+                    Id = role.Id,
+                    Name = role.Name,
+                    TotalUsers = usersInRole.Count
+                });
+            }
+        }
         
         return Ok(roles);
     }

@@ -25,5 +25,26 @@ namespace AuthAPI.Data
         protected AppDbContext()
         {
         }
+
+        /// <summary>
+        /// DbSet para los refresh tokens.
+        /// </summary>
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+
+        /// <summary>
+        /// Configuración del modelo de datos.
+        /// </summary>
+        /// <param name="modelBuilder">Constructor del modelo</param>
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Configurar la relación entre RefreshToken y AppUser
+            modelBuilder.Entity<RefreshToken>()
+                .HasOne(rt => rt.User)
+                .WithMany()
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        }
     }
 }
