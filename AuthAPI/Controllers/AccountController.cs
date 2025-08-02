@@ -12,6 +12,8 @@ using System.Security.Claims;
 using System.Text;
 using System.Net.Mail;
 using System.Net;
+using System;
+using System.Web;
 
 namespace AuthAPI.Controllers
 {
@@ -434,7 +436,25 @@ namespace AuthAPI.Controllers
             }
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var resetLink = $"{Request.Scheme}://{Request.Host}/api/account/reset-password?email={user.Email}&token={token}";
+            
+            // Log del token original para debugging
+            Console.WriteLine($"🔧 TOKEN ORIGINAL: {token}");
+            
+            // Obtener URL del frontend desde configuración
+            var frontendUrl = _configuration.GetSection("AppSettings:FrontendUrl").Value;
+            if (string.IsNullOrEmpty(frontendUrl))
+            {
+                // Fallback a localhost:4200
+                frontendUrl = "http://localhost:4200";
+            }
+            
+            // Codificar el token para URL (importante para caracteres especiales)
+            var encodedToken = HttpUtility.UrlEncode(token);
+            Console.WriteLine($"🔧 TOKEN CODIFICADO: {encodedToken}");
+            
+            // Generar enlace que vaya al frontend con los parámetros
+            var resetLink = $"{frontendUrl}/reset-password?email={HttpUtility.UrlEncode(user.Email)}&token={encodedToken}";
+            Console.WriteLine($"🔧 RESET LINK: {resetLink}");
 
             // Enviar email (configurar SMTP en appsettings.json)
             try
@@ -468,6 +488,17 @@ namespace AuthAPI.Controllers
         [HttpPost("reset-password")]
         public async Task<ActionResult<AuthRespondeDto>> ResetPassword(ResetPasswordDto resetPasswordDto)
         {
+            // Validar el modelo de datos
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new AuthRespondeDto
+                {
+                    IsSuccess = false,
+                    Message = "Invalid model data"
+                });
+            }
+
+            // Validar que las contraseñas coincidan
             if (resetPasswordDto.NewPassword != resetPasswordDto.ConfirmPassword)
             {
                 return BadRequest(new AuthRespondeDto
@@ -477,6 +508,18 @@ namespace AuthAPI.Controllers
                 });
             }
 
+            // Log del token recibido para debugging
+            Console.WriteLine($"🔧 TOKEN RECIBIDO: {resetPasswordDto.Token}");
+            
+            // Decodificar el token si viene codificado
+            var decodedToken = resetPasswordDto.Token;
+            if (resetPasswordDto.Token.Contains("%"))
+            {
+                decodedToken = HttpUtility.UrlDecode(resetPasswordDto.Token);
+                Console.WriteLine($"🔧 TOKEN DECODIFICADO: {decodedToken}");
+            }
+
+            // Buscar el usuario
             var user = await _userManager.FindByEmailAsync(resetPasswordDto.Email);
             if (user == null)
             {
@@ -487,7 +530,8 @@ namespace AuthAPI.Controllers
                 });
             }
 
-            var result = await _userManager.ResetPasswordAsync(user, resetPasswordDto.Token, resetPasswordDto.NewPassword);
+            // Intentar resetear la contraseña
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, resetPasswordDto.NewPassword);
 
             if (result.Succeeded)
             {
@@ -498,10 +542,14 @@ namespace AuthAPI.Controllers
                 });
             }
 
+            // Si falla, devolver los errores específicos
+            var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+            Console.WriteLine($"🔧 ERRORES DE RESET: {errors}");
+            
             return BadRequest(new AuthRespondeDto
             {
                 IsSuccess = false,
-                Message = "Failed to reset password"
+                Message = $"Failed to reset password: {errors}"
             });
         }
 
